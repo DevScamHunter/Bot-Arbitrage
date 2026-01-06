@@ -114,7 +114,7 @@ class AutoTradingBot {
         await this.initializeMarket();
         
         console.log('\n📡 Connecting to data feeds...');
-        // await this.connectSoftwareWebSocket();
+        await this.connectSoftwareWebSocket();
         await this.connectPolymarketWebSocket();
         
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -351,6 +351,63 @@ class AutoTradingBot {
         }
         return null;
     }
+    private async connectSoftwareWebSocket() {
+        // Binance BTC/USDT trade feed
+        const url = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
+        let lastPrice = 0;
+
+        const connect = () => {
+            if (!this.isRunning) return;
+
+            this.softwareWs = new WebSocket(url);
+
+            this.softwareWs.on('open', () => {
+                console.log(' Software WebSocket (Binance BTC) connected');
+            });
+
+            this.softwareWs.on('message', (data) => {
+                try {
+                    const msg = JSON.parse(data.toString());
+                    const price = parseFloat(msg.p); // p = price
+                    if (price <= 0) return;
+
+                    // Lấy giá hiện tại, tính UP/DOWN probability giả lập
+                    // VD: nếu giá tăng trong 1 phút thì UP = 0.7, DOWN = 0.3
+                    if (lastPrice === 0) lastPrice = price;
+
+                    const change = price - lastPrice;
+                    let probUp = 0.5;
+                    let probDown = 0.5;
+
+                    if (change > 0) {
+                        probUp = 0.75;
+                        probDown = 0.25;
+                    } else if (change < 0) {
+                        probUp = 0.25;
+                        probDown = 0.75;
+                    }
+
+                    this.softwarePrices.UP = probUp;
+                    this.softwarePrices.DOWN = probDown;
+
+                    lastPrice = price;
+                } catch (error) {
+                    console.error('Error parsing software message:', error);
+                }
+            });
+
+            this.softwareWs.on('error', (error) => {
+                console.error('Software WebSocket error:', error.message);
+            });
+
+            this.softwareWs.on('close', () => {
+                console.log('Software WebSocket closed, reconnecting in 5s...');
+                if (this.isRunning) setTimeout(connect, 5000);
+            });
+        };
+
+        connect();
+    }
 
     private async executeTrade(opportunity: TradeOpportunity) {
         console.log('\n📊 Executing trade...');
@@ -440,7 +497,7 @@ class AutoTradingBot {
 
     stop() {
         this.isRunning = false;
-        // this.softwareWs?.close();
+        this.softwareWs?.close();
         this.polymarketWs?.close();
         console.log('Bot stopped');
     }

@@ -118,10 +118,10 @@ class PolymarketBot {
                     await this.cancelOrder();
                     break;
                 case '0':
-                    console.log('Goodbye!');
+                    console.log('cút!');
                     return false;
                 default:
-                    console.log('Invalid choice. Please try again.\n');
+                    console.log('Chọn sai kìa lz djt con mẹ');
             }
         } catch (error) {
             console.error('Error:', error);
