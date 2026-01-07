@@ -36,7 +36,7 @@ export class BidAsker {
             const orderBook = await this.client.getOrderBook(tokenId);
             return orderBook;
         } catch (error) {
-            console.error(`❌ Error fetching order book for ${tokenId}:`, error);
+            console.error(`Error fetching order book for ${tokenId}:`, error);
             return null;
         }
     }
@@ -73,7 +73,7 @@ export class BidAsker {
                 spread
             };
         } catch (error) {
-            console.error(`❌ Error getting bid/ask:`, error);
+            console.error(`Error getting bid/ask:`, error);
             return { bid: null, ask: null, midpoint: null, spread: null };
         }
     }
@@ -86,7 +86,7 @@ export class BidAsker {
             const midpoint = await this.client.getMidpoint(tokenId);
             return midpoint ? parseFloat(midpoint) : null;
         } catch (error) {
-            console.error(`❌ Error fetching midpoint:`, error);
+            console.error(`Error fetching midpoint:`, error);
             return null;
         }
     }
@@ -99,7 +99,7 @@ export class BidAsker {
             const lastPrice = await this.client.getLastTradePrice(tokenId);
             return lastPrice ? parseFloat(lastPrice) : null;
         } catch (error) {
-            console.error(`❌ Error fetching last trade price:`, error);
+            console.error(`Error fetching last trade price:`, error);
             return null;
         }
     }
@@ -130,19 +130,19 @@ export class BidAsker {
         console.log('='.repeat(50));
         
         if (data.bidAsk.bid !== null) {
-            console.log(`📉 Best Bid:    $${data.bidAsk.bid.toFixed(4)}`);
+            console.log(`Best Bid:    $${data.bidAsk.bid.toFixed(4)}`);
         }
         if (data.bidAsk.ask !== null) {
-            console.log(`📈 Best Ask:    $${data.bidAsk.ask.toFixed(4)}`);
+            console.log(`Best Ask:    $${data.bidAsk.ask.toFixed(4)}`);
         }
         if (data.bidAsk.midpoint !== null) {
-            console.log(`💰 Midpoint:    $${data.bidAsk.midpoint.toFixed(4)}`);
+            console.log(` Midpoint:    $${data.bidAsk.midpoint.toFixed(4)}`);
         }
         if (data.bidAsk.spread !== null) {
-            console.log(`📊 Spread:      $${data.bidAsk.spread.toFixed(4)} (${(data.bidAsk.spread * 100).toFixed(2)}%)`);
+            console.log(`Spread:      $${data.bidAsk.spread.toFixed(4)} (${(data.bidAsk.spread * 100).toFixed(2)}%)`);
         }
         if (data.lastTrade !== null) {
-            console.log(`🔄 Last Trade:  $${data.lastTrade.toFixed(4)}`);
+            console.log(` Last Trade:  $${data.lastTrade.toFixed(4)}`);
         }
         
         console.log('='.repeat(50));

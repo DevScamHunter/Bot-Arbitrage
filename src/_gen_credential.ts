@@ -45,9 +45,9 @@ if (require.main === module) {
         const generator = new CredentialGenerator();
         generator.displayInfo();
         
-        console.log('\n✅ Credentials loaded successfully!');
+        console.log('Credentials loaded successfully!');
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('Error:', error);
         process.exit(1);
     }
 }

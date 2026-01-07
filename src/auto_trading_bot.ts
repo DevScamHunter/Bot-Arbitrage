@@ -532,14 +532,14 @@ class AutoTradingBot {
             this.activeTrades.push(trade);
             
             console.log('='.repeat(60));
-            console.log('✅ TRADE EXECUTION COMPLETE!');
+            console.log('TRADE EXECUTION COMPLETE!');
             console.log(`Total trades: ${this.activeTrades.length}`);
             console.log('='.repeat(60));
-            console.log(`⏰ Next trade available in ${this.tradeCooldown / 1000} seconds\n`);
+            console.log(`Next trade available in ${this.tradeCooldown / 1000} seconds\n`);
 
         } catch (error: any) {
             console.error('='.repeat(60));
-            console.error('❌ TRADE EXECUTION FAILED!');
+            console.error('TRADE EXECUTION FAILED!');
             console.error(`Error: ${error.message}`);
             console.error('='.repeat(60));
         }

@@ -34,9 +34,9 @@ export class AllowanceManager {
     async ensureAllowance(minAmount: number = 1000) {
         const sufficient = await this.isAllowanceSufficient(minAmount);
         if (!sufficient) {
-            console.log(`⚠️  Allowance insufficient. Set to ${minAmount} USDC via Polymarket UI.`);
+            console.log(`Allowance insufficient. Set to ${minAmount} USDC via Polymarket UI.`);
         } else {
-            console.log('✅ Allowance sufficient');
+            console.log('Allowance sufficient');
         }
     }
 

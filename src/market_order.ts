@@ -38,7 +38,7 @@ export class MarketOrderExecutor {
             const price = await this.client.getPrice(tokenId, side);
             return price ? parseFloat(price) : null;
         } catch (error) {
-            console.error(`❌ Error getting market price:`, error);
+            console.error(` Error getting market price:`, error);
             return null;
         }
     }
@@ -49,7 +49,7 @@ export class MarketOrderExecutor {
     async placeMarketOrder(params: MarketOrderParams): Promise<any> {
         try {
             console.log('='.repeat(50));
-            console.log('📝 Placing Market Order');
+            console.log('Placing Market Order');
             console.log('='.repeat(50));
             console.log(`Token ID: ${params.tokenId.substring(0, 12)}...`);
             console.log(`Side: ${params.side}`);
@@ -73,7 +73,7 @@ export class MarketOrderExecutor {
             const orderPrice = marketPrice * bufferMultiplier;
             
             console.log(`Order Price (with buffer): $${orderPrice.toFixed(4)}`);
-            console.log('\n🔄 Submitting order...\n');
+            console.log('Submitting order...\n');
 
             const order = await this.client.createAndPostOrder({
                 tokenID: params.tokenId,
@@ -84,14 +84,14 @@ export class MarketOrderExecutor {
             { tickSize: '0.001', negRisk: false }, // Default tick size
             OrderType.GTC);
 
-            console.log('✅ Order placed successfully!');
+            console.log(' Order placed successfully!');
             console.log('Order:', order);
             console.log('='.repeat(50));
             
             return order;
             
         } catch (error) {
-            console.error('❌ Error placing market order:', error);
+            console.error(' Error placing market order:', error);
             throw error;
         }
     }
@@ -107,13 +107,13 @@ export class MarketOrderExecutor {
     ): Promise<any> {
         try {
             console.log('='.repeat(50));
-            console.log('📝 Placing Limit Order');
+            console.log(' Placing Limit Order');
             console.log('='.repeat(50));
             console.log(`Token ID: ${tokenId.substring(0, 12)}...`);
             console.log(`Side: ${side}`);
             console.log(`Price: $${price.toFixed(4)}`);
             console.log(`Size: ${size.toFixed(2)} shares`);
-            console.log('\n🔄 Submitting order...\n');
+            console.log(' Submitting order...\n');
 
             const order = await this.client.createAndPostOrder({
                 tokenID: tokenId,
@@ -124,14 +124,14 @@ export class MarketOrderExecutor {
             { tickSize: '0.001', negRisk: false },
             OrderType.GTC);
 
-            console.log('✅ Order placed successfully!');
+            console.log(' Order placed successfully!');
             console.log('Order:', order);
             console.log('='.repeat(50));
             
             return order;
             
         } catch (error) {
-            console.error('❌ Error placing limit order:', error);
+            console.error(' Error placing limit order:', error);
             throw error;
         }
     }
@@ -141,12 +141,12 @@ export class MarketOrderExecutor {
      */
     async cancelOrder(orderId: string): Promise<any> {
         try {
-            console.log(`🔄 Cancelling order ${orderId}...`);
+            console.log(` Cancelling order ${orderId}...`);
             const result = await this.client.cancelOrder({ orderID: orderId });
-            console.log('✅ Order cancelled successfully!');
+            console.log(' Order cancelled successfully!');
             return result;
         } catch (error) {
-            console.error('❌ Error cancelling order:', error);
+            console.error(' Error cancelling order:', error);
             throw error;
         }
     }
@@ -159,7 +159,7 @@ export class MarketOrderExecutor {
             const order = await this.client.getOrder(orderId);
             return order;
         } catch (error) {
-            console.error('❌ Error getting order status:', error);
+            console.error(' Error getting order status:', error);
             throw error;
         }
     }
@@ -172,7 +172,7 @@ export class MarketOrderExecutor {
             const orders = await this.client.getOpenOrders();
             return orders || [];
         } catch (error) {
-            console.error('❌ Error getting open orders:', error);
+            console.error(' Error getting open orders:', error);
             return [];
         }
     }

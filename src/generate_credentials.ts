@@ -92,20 +92,20 @@ async function generateCredentials() {
         // NOTE: Polymarket serverTime trả về UNIX timestamp (seconds),
         // JS Date yêu cầu milliseconds → cần nhân 1000
         let serverDate = new Date(serverTime * 1000);
-        console.log(`✅ Authentication successful! Server time: ${serverDate.toISOString()}`);
+        console.log(`Authentication successful! Server time: ${serverDate.toISOString()}`);
 
         
         // Display usage instructions
-        console.log('\n' + '='.repeat(70));
-        console.log('📖 How to Use These Credentials:');
+        console.log('' + '='.repeat(70));
+        console.log('How to Use These Credentials:');
         console.log('='.repeat(70));
-        console.log('\n1. Using Environment Variables (Recommended):');
+        console.log('1. Using Environment Variables (Recommended):');
         console.log('   Add these to your .env file:');
         console.log(`   CLOB_API_KEY=${creds.key}`);
         console.log(`   CLOB_SECRET=${creds.secret}`);
         console.log(`   CLOB_PASS_PHRASE=${creds.passphrase}`);
         
-        console.log('\n2. Using in Code:');
+        console.log('. Using in Code:');
         console.log('   ```typescript');
         console.log('   const wallet = new Wallet(privateKey);');
         console.log('   const client = new ClobClient(host, chainId, wallet);');
@@ -119,10 +119,10 @@ async function generateCredentials() {
         console.log('Keep these credentials SECRET - they control your wallet!');
         console.log(' The .credentials.json file is in .gitignore (safe)');
         console.log(' You can regenerate them anytime with this script');
-        console.log('   ✅ These credentials are wallet-specific and deterministic');
-        console.log('   ✅ Running this script again will derive the same credentials');
+        console.log('   These credentials are wallet-specific and deterministic');
+        console.log('   Running this script again will derive the same credentials');
         
-        console.log('\n' + '='.repeat(70));
+        console.log('' + '='.repeat(70));
         console.log('All Done! Your credentials are ready to use.');
         console.log('='.repeat(70));
         
