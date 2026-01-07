@@ -34,7 +34,12 @@ interface TradeOpportunity {
     difference: number;
     momentum: number;
 }
-
+interface OracleResult {
+    shouldTrade: boolean;   // có cho trade không
+    confidence: number;     // độ tự tin 0 → 1
+    direction: 'UP' | 'DOWN' | 'NONE';
+    reason: string;
+}
 class AutoTradingBot {
     private wallet: Wallet;
     private client: ClobClient;
@@ -44,7 +49,7 @@ class AutoTradingBot {
     
     private softwarePrices: PriceData = { UP: 0, DOWN: 0 };
     private polymarketPrices: Map<string, number> = new Map();
-    
+    private oracleResult: OracleResult = {shouldTrade: false,confidence: 0,direction: 'NONE',reason: 'Not evaluated'};
     private activeTrades: Trade[] = [];
     private lastTradeTime: number = 0;
     private lastBalanceCheck: number = 0;
@@ -100,7 +105,7 @@ class AutoTradingBot {
         const balances = await this.checkAndDisplayBalances();
         
         const check = this.balanceChecker.checkSufficientBalance(balances, this.tradeAmount, 0.05);
-        console.log('\n📊 Balance Check:');
+        console.log('Balance Check:');
         check.warnings.forEach(w => console.log(`  ${w}`));
         
         if (!check.sufficient) {
@@ -327,15 +332,19 @@ class AutoTradingBot {
     private checkTradeOpportunity(): TradeOpportunity | null {
         const now = Date.now();
         if (now - this.lastTradeTime < this.tradeCooldown) return null;
+        this.evaluateOracle();
+        if (!this.oracleResult.shouldTrade) return null;
 
         for (const tokenType of ['UP', 'DOWN'] as const) {
+            if (tokenType !== this.oracleResult.direction) continue;
+
             const tokenId = tokenType === 'UP' ? this.tokenIdUp : this.tokenIdDown;
             if (!tokenId) continue;
 
             const polyPrice = this.polymarketPrices.get(tokenId);
             if (!polyPrice || polyPrice <= 0) continue;
 
-            // === Momentum check ===
+            // === Momentum check (Polymarket nội bộ) ===
             const lastPrice = this.lastPolymarketPrices.get(tokenId);
             this.lastPolymarketPrices.set(tokenId, polyPrice);
             if (!lastPrice) continue;
@@ -343,12 +352,10 @@ class AutoTradingBot {
             const priceChange = (polyPrice - lastPrice) / lastPrice;
             if (Math.abs(priceChange) < 0.002) continue;
 
-            const expectedDirection = tokenType === 'UP' ? 1 : -1;
-            if (Math.sign(priceChange) !== expectedDirection) continue;
-
             // === Personal belief pricing ===
             const softwarePrice = polyPrice * (1 + this.takeProfitAmount);
             const diff = softwarePrice - polyPrice;
+
             if (diff >= this.priceThreshold) {
                 return {
                     tokenType,
@@ -362,6 +369,43 @@ class AutoTradingBot {
         }
         return null;
     }
+
+    private evaluateOracle(): void {
+        const upProb = this.softwarePrices.UP;
+        const downProb = this.softwarePrices.DOWN;
+
+        if (upProb === 0 && downProb === 0) {
+            this.oracleResult = {
+                shouldTrade: false,
+                confidence: 0,
+                direction: 'NONE',
+                reason: 'No external price signal'
+            };
+            return;
+        }
+
+        const direction = upProb > downProb ? 'UP' : 'DOWN';
+        const confidence = Math.abs(upProb - downProb);
+
+        // Ngưỡng tối thiểu để oracle cho phép trade
+        if (confidence < 0.2) {
+            this.oracleResult = {
+                shouldTrade: false,
+                confidence,
+                direction: 'NONE',
+                reason: 'Low confidence oracle signal'
+            };
+            return;
+        }
+
+        this.oracleResult = {
+            shouldTrade: true,
+            confidence,
+            direction,
+            reason: 'External momentum confirms direction'
+        };
+    }
+
     private async connectSoftwareWebSocket() {
         // Binance BTC/USDT trade feed
         const url = 'wss://stream.binance.com:9443/ws/btcusdt@trade';
@@ -421,15 +465,15 @@ class AutoTradingBot {
     }
 
     private async executeTrade(opportunity: TradeOpportunity) {
-        console.log('\n📊 Executing trade...');
+        console.log('Executing trade...');
         this.lastTradeTime = Date.now();
 
         try {
             const buyPrice = opportunity.polymarketPrice;
             const shares = this.tradeAmount / buyPrice;
 
-            console.log(`💰 Buying ${shares.toFixed(4)} shares at $${buyPrice.toFixed(4)}`);
-            console.log(`⏳ Placing orders...`);
+            console.log(`Buying ${shares.toFixed(4)} shares at $${buyPrice.toFixed(4)}`);
+            console.log(`Placing orders...`);
 
             const buyResult = await this.client.createAndPostOrder(
                 {
