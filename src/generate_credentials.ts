@@ -88,7 +88,12 @@ async function generateCredentials() {
         
         // Try to get server time
         const serverTime = await authClient.getServerTime();
-        console.log(`✅ Authentication successful! Server time: ${new Date(serverTime).toISOString()}`);
+
+        // NOTE: Polymarket serverTime trả về UNIX timestamp (seconds),
+        // JS Date yêu cầu milliseconds → cần nhân 1000
+        let serverDate = new Date(serverTime * 1000);
+        console.log(`✅ Authentication successful! Server time: ${serverDate.toISOString()}`);
+
         
         // Display usage instructions
         console.log('\n' + '='.repeat(70));
