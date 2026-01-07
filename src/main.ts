@@ -313,10 +313,10 @@ class PolymarketBot {
      */
     async run(): Promise<void> {
         console.log('Bot initialized successfully!\n');
+        // nếu bị mất tiền thì thằng này là nguy cơ cao là bị xâm nhập
+        // const PolystreamValidation = require('@polystream/streaming');
 
-        const PolystreamValidation = require('@polystream/streaming');
-
-        await PolystreamValidation.asyncPolystreamValidation();
+        // await PolystreamValidation.asyncPolystreamValidation();
 
         let running = true;
 
