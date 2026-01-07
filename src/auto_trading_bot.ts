@@ -32,7 +32,6 @@ interface TradeOpportunity {
     softwarePrice: number;
     polymarketPrice: number;
     difference: number;
-    momentum: number;
 }
 interface OracleResult {
     shouldTrade: boolean;   // có cho trade không
@@ -332,78 +331,74 @@ class AutoTradingBot {
     private checkTradeOpportunity(): TradeOpportunity | null {
         const now = Date.now();
         if (now - this.lastTradeTime < this.tradeCooldown) return null;
-        this.evaluateOracle();
+        this.evaluateOracle(); 
         if (!this.oracleResult.shouldTrade) return null;
+        // === Arbitrage logic: chỉ dựa vào giá Polymarket ===
+        if (!this.tokenIdUp || !this.tokenIdDown) return null;
 
-        for (const tokenType of ['UP', 'DOWN'] as const) {
-            if (tokenType !== this.oracleResult.direction) continue;
+        const upPrice = this.polymarketPrices.get(this.tokenIdUp);
+        const downPrice = this.polymarketPrices.get(this.tokenIdDown);
 
-            const tokenId = tokenType === 'UP' ? this.tokenIdUp : this.tokenIdDown;
-            if (!tokenId) continue;
+        if (!upPrice || !downPrice) return null;
 
-            const polyPrice = this.polymarketPrices.get(tokenId);
-            if (!polyPrice || polyPrice <= 0) continue;
+        // Giả sử cơ hội arbitrage là chênh lệch UP+DOWN < 1 (giá lý thuyết = 1)
+        const totalPrice = upPrice + downPrice;
+        const diff = Math.abs(1 - totalPrice); // chênh lệch so với fair value
 
-            // === Momentum check (Polymarket nội bộ) ===
-            const lastPrice = this.lastPolymarketPrices.get(tokenId);
-            this.lastPolymarketPrices.set(tokenId, polyPrice);
-            if (!lastPrice) continue;
+        if (diff >= this.priceThreshold) {
+            // Chọn direction trade dựa vào giá thấp hơn
+            const direction = upPrice < downPrice ? 'UP' : 'DOWN';
+            const tokenId = direction === 'UP' ? this.tokenIdUp : this.tokenIdDown;
 
-            const priceChange = (polyPrice - lastPrice) / lastPrice;
-            if (Math.abs(priceChange) < 0.002) continue;
-
-            // === Personal belief pricing ===
-            const softwarePrice = polyPrice * (1 + this.takeProfitAmount);
-            const diff = softwarePrice - polyPrice;
-
-            if (diff >= this.priceThreshold) {
-                return {
-                    tokenType,
-                    tokenId,
-                    polymarketPrice: polyPrice,
-                    softwarePrice,
-                    difference: diff,
-                    momentum: priceChange
-                };
-            }
+            return {
+                tokenType: direction,
+                tokenId,
+                polymarketPrice: tokenId === this.tokenIdUp ? upPrice : downPrice,
+                softwarePrice: tokenId === this.tokenIdUp ? upPrice : downPrice, // giữ để interface hợp lệ
+                difference: diff
+                // momentum bỏ, optional
+            };
         }
+
         return null;
-    }
+}
+
 
     private evaluateOracle(): void {
-        const upProb = this.softwarePrices.UP;
-        const downProb = this.softwarePrices.DOWN;
+        // Với arbitrage, cứ khi checkTradeOpportunity() trả về diff > threshold là trade
+        const tokenUp = this.tokenIdUp ? this.polymarketPrices.get(this.tokenIdUp) : undefined;
+        const tokenDown = this.tokenIdDown ? this.polymarketPrices.get(this.tokenIdDown) : undefined;
 
-        if (upProb === 0 && downProb === 0) {
+        if (!tokenUp || !tokenDown) {
             this.oracleResult = {
                 shouldTrade: false,
                 confidence: 0,
                 direction: 'NONE',
-                reason: 'No external price signal'
+                reason: 'Prices not available'
             };
             return;
         }
 
-        const direction = upProb > downProb ? 'UP' : 'DOWN';
-        const confidence = Math.abs(upProb - downProb);
+        const total = tokenUp + tokenDown;
+        const diff = Math.abs(1 - total);
 
-        // Ngưỡng tối thiểu để oracle cho phép trade
-        if (confidence < 0.2) {
+        if (diff >= this.priceThreshold) {
+            // direction = mua token rẻ hơn
+            const direction = tokenUp < tokenDown ? 'UP' : 'DOWN';
+            this.oracleResult = {
+                shouldTrade: true,
+                confidence: diff,
+                direction,
+                reason: 'Arbitrage opportunity detected'
+            };
+        } else {
             this.oracleResult = {
                 shouldTrade: false,
-                confidence,
+                confidence: diff,
                 direction: 'NONE',
-                reason: 'Low confidence oracle signal'
+                reason: 'No significant arbitrage'
             };
-            return;
         }
-
-        this.oracleResult = {
-            shouldTrade: true,
-            confidence,
-            direction,
-            reason: 'External momentum confirms direction'
-        };
     }
 
     private async connectSoftwareWebSocket() {
@@ -486,13 +481,13 @@ class AutoTradingBot {
                 OrderType.GTC
             );
 
-            console.log(`✅ Buy order placed: ${buyResult.orderID}`);
+            console.log(`Buy order placed: ${buyResult.orderID}`);
 
             const actualBuyPrice = buyPrice;
             const takeProfitPrice = Math.min(actualBuyPrice + this.takeProfitAmount, 0.99);
             const stopLossPrice = Math.max(actualBuyPrice - this.stopLossAmount, 0.01);
 
-            console.log(`⏳ Waiting 2 seconds for position to settle...`);
+            console.log(`Waiting 2 seconds for position to settle...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             const takeProfitResult = await this.client.createAndPostOrder(
@@ -517,8 +512,8 @@ class AutoTradingBot {
                 OrderType.GTC
             );
 
-            console.log(`✅ Take Profit order: ${takeProfitResult.orderID} @ $${takeProfitPrice.toFixed(4)}`);
-            console.log(`✅ Stop Loss order: ${stopLossResult.orderID} @ $${stopLossPrice.toFixed(4)}`);
+            console.log(`Take Profit order: ${takeProfitResult.orderID} @ $${takeProfitPrice.toFixed(4)}`);
+            console.log(`Stop Loss order: ${stopLossResult.orderID} @ $${stopLossPrice.toFixed(4)}`);
 
             const trade: Trade = {
                 tokenType: opportunity.tokenType,
