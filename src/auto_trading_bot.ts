@@ -32,6 +32,7 @@ interface TradeOpportunity {
     softwarePrice: number;
     polymarketPrice: number;
     difference: number;
+    momentum: number;
 }
 
 class AutoTradingBot {
@@ -48,7 +49,8 @@ class AutoTradingBot {
     private lastTradeTime: number = 0;
     private lastBalanceCheck: number = 0;
     private balanceCheckInterval: number = 60000;
-    
+    private lastPolymarketPrices: Map<string, number> = new Map();
+
     private priceThreshold: number;
     private stopLossAmount: number;
     private takeProfitAmount: number;
@@ -62,7 +64,7 @@ class AutoTradingBot {
     constructor() {
         const privateKey = process.env.PRIVATE_KEY;
         if (!privateKey || privateKey.length < 64) {
-            console.error('❌ PRIVATE_KEY not found or invalid in environment variables');
+            console.error('PRIVATE_KEY not found or invalid in environment variables');
             console.error('Please add your private key to the .env file:');
             console.error('PRIVATE_KEY=0xYourPrivateKeyHere');
             throw new Error('PRIVATE_KEY not found in .env');
@@ -94,7 +96,7 @@ class AutoTradingBot {
         console.log(`Trade Amount: $${this.tradeAmount.toFixed(2)}`);
         console.log(`Cooldown: ${this.tradeCooldown / 1000}s`);
         console.log('='.repeat(60));
-        console.log('\n💰 Checking wallet balances...');
+        console.log(' Checking wallet balances...');
         const balances = await this.checkAndDisplayBalances();
         
         const check = this.balanceChecker.checkSufficientBalance(balances, this.tradeAmount, 0.05);
@@ -102,18 +104,18 @@ class AutoTradingBot {
         check.warnings.forEach(w => console.log(`  ${w}`));
         
         if (!check.sufficient) {
-            console.log('\n❌ Insufficient funds to start trading!');
+            console.log(' Insufficient funds to start trading!');
             console.log('Please fund your wallet:');
             console.log(`  - USDC: At least $${this.tradeAmount.toFixed(2)}`);
             console.log(`  - MATIC: At least 0.05 for gas fees`);
             throw new Error('Insufficient balance');
         }
         
-        console.log('\n✅ Balances sufficient!');
+        console.log('Balances sufficient!');
         
         await this.initializeMarket();
         
-        console.log('\n📡 Connecting to data feeds...');
+        console.log('Connecting to data feeds...');
         await this.connectSoftwareWebSocket();
         await this.connectPolymarketWebSocket();
         
@@ -122,7 +124,7 @@ class AutoTradingBot {
         this.isRunning = true;
         this.startMonitoring();
         
-        console.log('\n✅ Bot started successfully!');
+        console.log('Bot started successfully!');
         console.log('Monitoring for trade opportunities...\n');
     }
 
@@ -208,7 +210,7 @@ class AutoTradingBot {
             this.polymarketWs = new WebSocket(url);
             
             this.polymarketWs.on('open', () => {
-                console.log('✅ Polymarket WebSocket connected');
+                console.log('Polymarket WebSocket connected');
                 
                 const subscribeMessage = {
                     action: 'subscribe',
@@ -284,12 +286,12 @@ class AutoTradingBot {
             const now = Date.now();
             
             if (now - this.lastBalanceCheck >= this.balanceCheckInterval) {
-                console.log('\n💰 Periodic balance check...');
+                console.log('Periodic balance check...');
                 const balances = await this.checkAndDisplayBalances();
                 const check = this.balanceChecker.checkSufficientBalance(balances, this.tradeAmount, 0.02);
                 
                 if (!check.sufficient) {
-                    console.log('⚠️  WARNING: Low balance detected!');
+                    console.log('WARNING: Low balance detected!');
                     check.warnings.forEach(w => console.log(`  ${w}`));
                 }
                 
@@ -310,7 +312,7 @@ class AutoTradingBot {
             const opportunity = this.checkTradeOpportunity();
             if (opportunity) {
                 console.log('\n' + '='.repeat(60));
-                console.log('🎯 TRADE OPPORTUNITY DETECTED!');
+                console.log('TRADE OPPORTUNITY DETECTED!');
                 console.log('='.repeat(60));
                 console.log(`Token: ${opportunity.tokenType}`);
                 console.log(`Software Price: $${opportunity.softwarePrice.toFixed(4)}`);
@@ -322,30 +324,39 @@ class AutoTradingBot {
             }
         }, 1000);
     }
-
     private checkTradeOpportunity(): TradeOpportunity | null {
-        const currentTime = Date.now();
-        const remainingCooldown = this.tradeCooldown - (currentTime - this.lastTradeTime);
-        if (remainingCooldown > 0) return null;
+        const now = Date.now();
+        if (now - this.lastTradeTime < this.tradeCooldown) return null;
 
-        for (const tokenType of ['UP', 'DOWN']) {
+        for (const tokenType of ['UP', 'DOWN'] as const) {
             const tokenId = tokenType === 'UP' ? this.tokenIdUp : this.tokenIdDown;
             if (!tokenId) continue;
 
-            const polyPrice = this.polymarketPrices.get(tokenId) || 0;
-            if (polyPrice <= 0) continue;
+            const polyPrice = this.polymarketPrices.get(tokenId);
+            if (!polyPrice || polyPrice <= 0) continue;
 
-            //Mock softwarePrice = polyPrice ± margin
+            // === Momentum check ===
+            const lastPrice = this.lastPolymarketPrices.get(tokenId);
+            this.lastPolymarketPrices.set(tokenId, polyPrice);
+            if (!lastPrice) continue;
+
+            const priceChange = (polyPrice - lastPrice) / lastPrice;
+            if (Math.abs(priceChange) < 0.002) continue;
+
+            const expectedDirection = tokenType === 'UP' ? 1 : -1;
+            if (Math.sign(priceChange) !== expectedDirection) continue;
+
+            // === Personal belief pricing ===
             const softwarePrice = polyPrice * (1 + this.takeProfitAmount);
-
             const diff = softwarePrice - polyPrice;
             if (diff >= this.priceThreshold) {
                 return {
                     tokenType,
                     tokenId,
-                    softwarePrice,
                     polymarketPrice: polyPrice,
-                    difference: diff
+                    softwarePrice,
+                    difference: diff,
+                    momentum: priceChange
                 };
             }
         }
